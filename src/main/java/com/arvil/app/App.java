@@ -1,55 +1,77 @@
 package com.arvil.app;
 
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.Security;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.KeySpec;
-import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import org.bouncycastle.crypto.BufferedBlockCipher;
-import org.bouncycastle.crypto.engines.RijndaelEngine;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import java.util.ListIterator;
+
+import org.bouncycastle.crypto.InvalidCipherTextException;
+
+import com.arvil.app.models.CustomerInfo;
+import com.arvil.app.models.ResponseContent;
+import com.arvil.app.models.ReturnResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;;
 
 public class App {
+    private static String deviceId = "123456789012345"; // Uses IMEI but any value will do
+    private static String passPhrase = "OAUNEW5EHNAU25Z9Z1T0A3R67YS0ZH2JGV89HSD2MDNN0HN6U90KJMDVOLO37O0ZMV4BKA9M5I5SISA0XZMYGEWE6CJAKYFQG1WC6KCOTA737E02LVHAPOX28KMD1UKD";
+    private static String passPhrase2 = "C2TH1KWTLLK3ICLUCTYGLO3WILVOPYYRADUYCQSTT58WQBZIZBXEW6FVJ9OODMZJ36KUD3T6Y25HQOMOO0OLOONGVU1KN9IOA8XHWRWAFNOM7H6517BFZPGYRFYBQCEZ";
+
     public static void main(String[] args) {
-        System.out.println(Encrypt("520020202020",
-                "C2TH1KWTLLK3ICLUCTYGLO3WILVOPYYRADUYCQSTT58WQBZIZBXEW6FVJ9OODMZJ36KUD3T6Y25HQOMOO0OLOONGVU1KN9IOA8XHWRWAFNOM7H6517BFZPGYRFYBQCEZ"));
-    }
+        String strAcct = args[0];
 
-    public static String Encrypt(String plainText, String passPhrase) {
+        String acctJson = "{\"AccountObuID\":\"" + strAcct + "\"}";
+
         try {
-            Security.addProvider(new BouncyCastleProvider());
-            byte[] array = Generate256BitsOfRandomEntropy();
-            byte[] array2 = Generate256BitsOfRandomEntropy();
-            byte[] bytes = plainText.getBytes();
-            byte[] bytes2 = GetRfc2898DerivedByes(passPhrase.toCharArray(), array);
-            BufferedBlockCipher cipher = new BufferedBlockCipher(new RijndaelEngine(256));
-            return "HAAHAHAH";
-        } catch (Exception ex) {
+            System.out.println("Sending request...");
+            BalInqClass balInqClass = new BalInqClass();
+            String crpContent = StringCipher.Encrypt(acctJson, passPhrase2);
+            String id = StringCipher.Encrypt("02:00:00:00:00:00" + deviceId.toString(), passPhrase);
+            String response = balInqClass.SendWS(crpContent, id);
+            
+            ObjectMapper objectMapper = new ObjectMapper();
 
-            return "An error occured";
+            ReturnResponse returnVal = objectMapper.readValue(response, ReturnResponse.class);
+
+            String userInfo = StringCipher.Decrypt(returnVal.Return.Result, passPhrase2);
+
+            ResponseContent responseContent = objectMapper.readValue(userInfo, ResponseContent.class);
+
+            ListIterator<CustomerInfo> iterator = responseContent.CustomerInfo.listIterator();
+
+            while (iterator.hasNext()) { 
+                CustomerInfo customerInfo = iterator.next();
+                System.out.println("Name: " + customerInfo.Name);
+                System.out.println("ID: " + customerInfo.CustAccountID);
+                System.out.println("Balance: " + customerInfo.Balance);
+            } 
+
+        } catch (InvalidKeyException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (NoSuchAlgorithmException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (UnsupportedEncodingException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (InvalidCipherTextException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (MalformedURLException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (ProtocolException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         }
+
     }
 
-    private static byte[] GetRfc2898DerivedByes(char[] passPhrase, byte[] array)
-            throws NoSuchAlgorithmException, InvalidKeySpecException {
-        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-        KeySpec spec = new PBEKeySpec(passPhrase, array, 1000, 256);
-        SecretKey secretKey = factory.generateSecret(spec);
-        byte[] key = secretKey.getEncoded();
-
-        byte[] keyBytes = new byte[256 / 8];
-
-        System.arraycopy(key, 0, keyBytes, 0, 256 / 8);
-        return keyBytes;
-    }
-
-    private static byte[] Generate256BitsOfRandomEntropy() {
-        SecureRandom random = new SecureRandom();
-        byte[] salt = new byte[32];
-        random.nextBytes(salt);
-        return salt;
-    }
 }
